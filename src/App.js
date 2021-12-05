@@ -2,6 +2,20 @@ import React, { Component } from "react";
 import Axios from "axios";
 import "./App.css";
 
+Axios.interceptors.response.use(null, error => {
+  const expectedError = 
+    error.response && 
+    error.response.status >= 400 && 
+    error.response.status < 500;
+
+  if (!expectedError){
+    console.log('Logging the error', error);
+    alert('An unexpected error occured.');
+  }
+
+  return Promise.reject(error);
+});
+
 const apiEndpoint = "https://jsonplaceholder.typicode.com/posts";
 
 class App extends Component {
@@ -23,12 +37,34 @@ class App extends Component {
     this.setState({ posts });
   };
 
-  handleUpdate = post => {
-    console.log("Update", post);
+  handleUpdate = async post => {
+    post.title = "UPDATED";
+    await Axios.put(apiEndpoint + '/' + post.id, post);
+    
+    const posts = [...this.state.posts];
+    const index = posts.indexOf(post);
+    post[index] = {...post};
+    this.setState({ posts });
+  
   };
 
-  handleDelete = post => {
-    console.log("Delete", post);
+  handleDelete = async post => {
+    const originalPosts = this.state.posts;
+    
+    const posts = this.state.posts.filter(p => p.id !== post.id);
+    this.setState({posts})
+
+    try {
+      await Axios.delete(apiEndpoint + '/' + post.id);
+      throw new Error("");
+    } catch (ex) {
+      // Expected (404: not found, 400: bad request) - CLIENT ERRORS
+      // -Display a specific error msg
+      if (ex.response && ex.response.status === 404)
+        alert('This post has already been deleted.');
+      
+      this.setState({posts: originalPosts})
+    }
   };
 
   render() {
